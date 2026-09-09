@@ -648,13 +648,15 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; }
     right: auto;
     width: 240px;
     z-index: 50;
-    transform: translateX(0);
+    transform: translateX(-100%);
     transition: transform 0.2s ease;
     padding: 22px 18px;
   }
-  /* On narrow screens "collapsed" means slid off-canvas, matching the
-     same class the toggle button already uses on desktop. */
-  .app-shell.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+  /* On narrow screens the sidebar starts off-canvas so it doesn't cover
+     the dashboard on first load; the toggle reveals it by adding
+     .sidebar-collapsed (same class the desktop toggle uses, reused here
+     with the opposite visual effect since positioning differs). */
+  .app-shell.sidebar-collapsed .sidebar { transform: translateX(0); }
   .topbar { padding: 12px 14px; }
   .dashboard-grid { padding: 14px; }
   #watershedSelect { min-width: 160px; }
