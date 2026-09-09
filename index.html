@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WaterShed Monitor — Smart Watershed Monitoring System</title>
+<meta name="description" content="GIS-based dashboard for monitoring watershed intervention impact using Sentinel-2 change detection, LULC comparison, and field evidence.">
+
+<!-- Leaflet (GIS map) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+<!-- Fonts used by css/style.css -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<noscript>
+  <div style="padding:24px;font-family:sans-serif;">
+    This dashboard requires JavaScript to load watershed, intervention and satellite-analysis data. Please enable JavaScript.
+  </div>
+</noscript>
+
+<div class="app-shell">
+
+  <!-- ============================== SIDEBAR ============================== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C12 2 5 10.2 5 15.2A7 7 0 0 0 19 15.2C19 10.2 12 2 12 2Z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 id="appName">WaterShed Monitor</h1>
+        <p id="appTagline">Smart Watershed Monitoring System</p>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Primary">
+      <div class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span>Dashboard</span>
+      </div>
+    </nav>
+    <p class="nav-note">This prototype ships a single monitoring view. Dedicated Analysis, Reports and Alerts sections will be added once those data models exist in Supabase.</p>
+
+    <div class="sidebar-legend">
+      <h3>Map Legend</h3>
+      <div class="legend-row"><span class="legend-dot" style="background:#1E8F5F"></span>Check Dam</div>
+      <div class="legend-row"><span class="legend-dot" style="background:#2E7EB0"></span>Pond</div>
+      <div class="legend-row"><span class="legend-dot" style="background:#C98A3B"></span>Percolation Tank</div>
+      <div class="legend-row"><span class="legend-dot" style="background:#7B5EA7"></span>Contour Bund</div>
+      <div class="legend-row"><span class="legend-dot" style="background:#5B6B77"></span>Other</div>
+      <div class="legend-row"><span class="legend-dot" style="background:#facc15;border-radius:3px;"></span>Watershed boundary</div>
+    </div>
+  </aside>
+
+  <!-- ============================== MAIN AREA ============================== -->
+  <div class="main-content">
+
+    <header class="topbar">
+      <button id="sidebarToggle" class="icon-btn" type="button" aria-label="Toggle sidebar" title="Toggle sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      <div class="field-group">
+        <label for="watershedSelect">Watershed</label>
+        <select id="watershedSelect" aria-label="Select watershed">
+          <option>Loading watersheds…</option>
+        </select>
+      </div>
+
+      <div class="topbar-spacer"></div>
+
+      <div id="dataModeBanner" class="demo-banner" role="status">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.2" r="0.4" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>Demo data — not live Sentinel-2 measurements</span>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+
+      <div class="left-column">
+
+        <!-- Map -->
+        <section class="panel map-panel" id="mapPanel" aria-label="Watershed map">
+          <div id="map" class="map-container"></div>
+        </section>
+
+        <!-- Summary cards -->
+        <section class="panel summary-panel" aria-label="Watershed impact summary">
+          <div class="summary-cards" id="summaryCards">
+            <div class="summary-card card-total">
+              <span class="summary-label">Total Interventions</span>
+              <span class="summary-value">—</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Intervention list -->
+        <section class="panel list-panel" aria-label="Intervention list">
+          <div class="list-panel-header">
+            <h2>Interventions</h2>
+            <div class="list-controls">
+              <input id="searchInput" type="search" placeholder="Search ID, name, type…" aria-label="Search interventions">
+              <select id="typeFilter" aria-label="Filter by intervention type">
+                <option value="All Types">All Types</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="intervention-table">
+              <thead>
+                <tr><th>ID</th><th>Type</th><th>Status</th><th>View</th></tr>
+              </thead>
+              <tbody id="interventionListBody">
+                <tr><td colspan="4" class="table-empty">Loading interventions…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Details panel -->
+      <aside class="details-panel" id="detailsPanel" aria-label="Intervention details">
+        <div class="details-panel-header">
+          <h2 id="detailsPanelTitle">Intervention Details</h2>
+          <button id="detailsCloseBtn" class="icon-btn" type="button" aria-label="Close details panel" title="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="details-panel-body" id="detailsPanelBody">
+          <div class="state-block details-placeholder">
+            <p>Select an intervention on the map or in the list to view its full monitoring details.</p>
+          </div>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+</div>
+
+<!-- ============================== LIBRARIES ============================== -->
+<!-- Leaflet: GIS map rendering -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Chart.js: NDVI / NDWI / LULC indicator graphs -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<!-- Supabase JS client: only actually used when js/config.js sets USE_DEMO_DATA = false -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<!-- ============================== APP SCRIPTS ==============================
+     Load order matters: each module attaches to a global (CONFIG, DB, UI, …)
+     that later files depend on. demo-data.js must load before database.js
+     because database.js reads the DEMO_DATA global directly. -->
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/demo-data.js"></script>
+<script src="js/database.js"></script>
+<script src="js/interventions.js"></script>
+<script src="js/impact.js"></script>
+<script src="js/map.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
